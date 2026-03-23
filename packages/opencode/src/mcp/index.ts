@@ -617,17 +617,26 @@ export namespace MCP {
 
     const toolsResults = await Promise.all(
       connectedClients.map(async ([clientName, client]) => {
-        const toolsResult = await client.listTools().catch((e) => {
-          log.error("failed to get tools", { clientName, error: e.message })
-          const failedStatus = {
-            status: "failed" as const,
-            error: e instanceof Error ? e.message : String(e),
+        const toolsResult = await client.listTools().catch(async (e) => {
+          log.warn("listTools failed, attempting reconnect", { clientName, error: e.message })
+          await connect(clientName)
+          const reconnected = s.clients[clientName]
+          if (reconnected) {
+            return reconnected.listTools().catch((retryErr) => {
+              log.error("failed to get tools after reconnect", { clientName, error: retryErr.message })
+              s.status[clientName] = {
+                status: "failed" as const,
+                error: retryErr instanceof Error ? retryErr.message : String(retryErr),
+              }
+              delete s.clients[clientName]
+              return undefined
+            })
           }
-          s.status[clientName] = failedStatus
-          delete s.clients[clientName]
           return undefined
         })
-        return { clientName, client, toolsResult }
+        // Use reconnected client for tool conversion if reconnection occurred
+        const activeClient = s.clients[clientName] ?? client
+        return { clientName, client: activeClient, toolsResult }
       }),
     )
 
