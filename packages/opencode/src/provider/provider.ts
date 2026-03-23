@@ -150,12 +150,16 @@ export namespace Provider {
   }
 
   const CUSTOM_LOADERS: Record<string, CustomLoader> = {
-    async anthropic() {
+    async anthropic(input) {
+      for (const model of Object.values(input.models)) {
+        if (model.id.includes("opus-4-6") || model.id.includes("sonnet")) model.limit.context = 1_000_000
+      }
       return {
         autoload: false,
         options: {
           headers: {
-            "anthropic-beta": "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14",
+            "anthropic-beta":
+              "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14,context-1m-2025-08-07",
           },
         },
       }

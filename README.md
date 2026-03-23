@@ -1,3 +1,9 @@
+> **Private Fork** — This is a private fork of [anomalyco/opencode](https://github.com/anomalyco/opencode)
+> with local patches for 1M Anthropic context, corrected over-200K cost estimation, and custom
+> build tooling. See [AGENTS.md](./AGENTS.md) for fork details and `./sync.sh` for syncing with upstream.
+
+---
+
 <p align="center">
   <a href="https://opencode.ai">
     <picture>

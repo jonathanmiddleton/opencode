@@ -42,17 +42,15 @@ jobs:
               throw error;
             }
 
-            // Parse the .td file for vouched and denounced users
-            const vouched = new Set();
+            // Parse the .td file for denounced users
             const denounced = new Map();
             for (const line of content.split('\n')) {
               const trimmed = line.trim();
               if (!trimmed || trimmed.startsWith('#')) continue;
+              if (!trimmed.startsWith('-')) continue;
 
-              const isDenounced = trimmed.startsWith('-');
-              const rest = isDenounced ? trimmed.slice(1).trim() : trimmed;
+              const rest = trimmed.slice(1).trim();
               if (!rest) continue;
-
               const spaceIdx = rest.indexOf(' ');
               const handle = spaceIdx === -1 ? rest : rest.slice(0, spaceIdx);
               const reason = spaceIdx === -1 ? null : rest.slice(spaceIdx + 1).trim();
@@ -67,50 +65,32 @@ jobs:
               const username = colonIdx === -1 ? handle : handle.slice(colonIdx + 1);
               if (!username) continue;
 
-              if (isDenounced) {
-                denounced.set(username.toLowerCase(), reason);
-                continue;
-              }
-
-              vouched.add(username.toLowerCase());
+              denounced.set(username.toLowerCase(), reason);
             }
 
             // Check if the author is denounced
             const reason = denounced.get(author.toLowerCase());
-            if (reason !== undefined) {
-              // Author is denounced — close the issue
-              const body = 'This issue has been automatically closed.';
-
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                body,
-              });
-
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                state: 'closed',
-                state_reason: 'not_planned',
-              });
-
-              core.info(`Closed issue #${issueNumber} from denounced user ${author}`);
+            if (reason === undefined) {
+              core.info(`User ${author} is not denounced. Allowing issue.`);
               return;
             }
 
-            // Author is positively vouched — add label
-            if (!vouched.has(author.toLowerCase())) {
-              core.info(`User ${author} is not denounced or vouched. Allowing issue.`);
-              return;
-            }
+            // Author is denounced — close the issue
+            const body = 'This issue has been automatically closed.';
 
-            await github.rest.issues.addLabels({
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              labels: ['Vouched'],
+              body,
             });
 
-            core.info(`Added vouched label to issue #${issueNumber} from ${author}`);
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              state: 'closed',
+              state_reason: 'not_planned',
+            });
+
+            core.info(`Closed issue #${issueNumber} from denounced user ${author}`);
